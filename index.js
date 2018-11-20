@@ -18,27 +18,37 @@ var unifiedServer = function(req, res) {
     var path = parseUrl.pathname;
     var trimmedPath =  path.replace(/^\/+|\/+$/g, '');
 
-    var chooseHandler = typeof(routes[trimmedPath])  != 'undefined' ?  routes[trimmedPath] : handler.notDefined;
+    // Get the payload, if any
+    var decoder = new StringDecoder('utf-8');
+    var buffer = '';
+    req.on('data', function(data) {
+        buffer += decoder.write(data);
+    });
+    req.on('end', function() {
+        buffer += decoder.end();
 
-    var data = {};
+        var chooseHandler = typeof(routes[trimmedPath])  != 'undefined' ?  routes[trimmedPath] : handler.notDefined;
 
-    chooseHandler(data, function(statusCode, payload){
-        // Verify the statusCode
-        statusCode =  typeof(statusCode)  ==  'number'  ?  statusCode : 200;
+        var data = {};
 
-        // Verify the payload
-        payload =  typeof(payload) == 'object' ?  payload : {};
+        chooseHandler(data, function(statusCode, payload){
+            // Verify the statusCode
+            statusCode =  typeof(statusCode)  ==  'number'  ?  statusCode : 200;
 
-        // Convert payload to string
-        payload = JSON.stringify(payload);
+            // Verify the payload
+            payload =  typeof(payload) == 'object' ?  payload : {};
 
-        // This is the response
-        res.setHeader('Content-Type', 'application/json');
-        res.writeHead(statusCode);
-        res.end(payload);
+            // Convert payload to string
+            payload = JSON.stringify(payload);
 
-        // Log the response
-        console.log("Returning this response: ", statusCode, payload);
+            // This is the response
+            res.setHeader('Content-Type', 'application/json');
+            res.writeHead(statusCode);
+            res.end(payload);
+
+            // Log the response
+            console.log("Returning this response: ", statusCode, payload);
+        });
     });
 };
 
