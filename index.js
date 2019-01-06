@@ -5,38 +5,40 @@
 var http = require('http');
 var url = require('url');
 var StringDecoder = require('string_decoder').StringDecoder;
+var cluster = require('cluster');
+var os = require('os');
 
-var httpServer = http.createServer(function(req, res){
+var httpServer = http.createServer(function (req, res) {
     unifiedServer(req, res);
 });
 
-var unifiedServer = function(req, res) {
+var unifiedServer = function (req, res) {
     // Parse the url
     var parseUrl = url.parse(req.url, true);
 
     // Get url path name
     var path = parseUrl.pathname;
-    var trimmedPath =  path.replace(/^\/+|\/+$/g, '');
+    var trimmedPath = path.replace(/^\/+|\/+$/g, '');
 
     // Get the payload, if any
     var decoder = new StringDecoder('utf-8');
     var buffer = '';
-    req.on('data', function(data) {
+    req.on('data', function (data) {
         buffer += decoder.write(data);
     });
-    req.on('end', function() {
+    req.on('end', function () {
         buffer += decoder.end();
 
-        var chooseHandler = typeof(routes[trimmedPath])  != 'undefined' ?  routes[trimmedPath] : handler.notDefined;
+        var chooseHandler = typeof (routes[trimmedPath]) != 'undefined' ? routes[trimmedPath] : handler.notDefined;
 
         var data = {};
 
-        chooseHandler(data, function(statusCode, payload){
+        chooseHandler(data, function (statusCode, payload) {
             // Verify the statusCode
-            statusCode =  typeof(statusCode)  ==  'number'  ?  statusCode : 200;
+            statusCode = typeof (statusCode) == 'number' ? statusCode : 200;
 
             // Verify the payload
-            payload =  typeof(payload) == 'object' ?  payload : {};
+            payload = typeof (payload) == 'object' ? payload : {};
 
             // Convert payload to string
             payload = JSON.stringify(payload);
@@ -52,21 +54,29 @@ var unifiedServer = function(req, res) {
     });
 };
 
-httpServer.listen(3000, function()  {
-    console.log("The server is listening on port 3000")
-})
+if (cluster.isMaster) {
+    for (var i = 0; i < os.cpus().length; i++) {
+        cluster.fork();
+    }
+} else {
+    httpServer.listen(3000, function () {
+        console.log("The server is listening on port 3000")
+    })
+}
 
 
 // Handler for routes
-var handler  =  {}
+var handler = {}
 
 // Hello world handler
-handler.hello = function(data, callback)  {
-    callback(200, {"message" :  "Hello World"});
+handler.hello = function (data, callback) {
+    callback(200, {
+        "message": "Hello World"
+    });
 }
 
 // Not defined handler
-handler.notDefined =  function(data, callback)  {
+handler.notDefined = function (data, callback) {
     callback(404);
 }
 
